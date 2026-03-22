@@ -181,3 +181,50 @@ func ExportCSV(c *gin.Context) {
 		c.Writer.WriteString(line)
 	}
 }
+
+func GetCategoriesTree(c *gin.Context) {
+	categories, err := repository.GetCategoriesWithSubs()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, categories)
+}
+
+func CreateCategory(c *gin.Context) {
+	var input struct {
+		Name     string `json:"name" binding:"required"`
+		Type     string `json:"type" binding:"required,oneof=income expense"`
+		ParentID *uint  `json:"parent_id"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	cat := &models.Category{
+		Name:     input.Name,
+		Type:     input.Type,
+		ParentID: input.ParentID,
+		IsCustom: true,
+	}
+	if err := repository.CreateCategory(cat); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, cat)
+}
+
+func DeleteCategory(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "неверный id"})
+		return
+	}
+	if err := repository.DeleteCategory(uint(id), userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "категория удалена"})
+}

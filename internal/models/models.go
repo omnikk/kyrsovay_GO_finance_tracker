@@ -13,9 +13,12 @@ type User struct {
 }
 
 type Category struct {
-	ID   uint   `json:"id" gorm:"primaryKey"`
-	Name string `json:"name" gorm:"not null"`
-	Type string `json:"type" gorm:"not null"` // "income" или "expense"
+	ID       uint      `json:"id" gorm:"primaryKey"`
+	Name     string    `json:"name" gorm:"not null"`
+	Type     string    `json:"type" gorm:"not null"` // "income" или "expense"
+	ParentID *uint     `json:"parent_id" gorm:"default:null"`
+	Parent   *Category `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
+	IsCustom bool      `json:"is_custom" gorm:"default:false"`
 }
 
 type Transaction struct {

@@ -34,7 +34,9 @@ func main() {
 	api := r.Group("/api")
 	api.Use(middleware.AuthRequired())
 	{
-		api.GET("/categories", handlers.GetCategories)
+		api.GET("/categories", handlers.GetCategoriesTree)
+		api.POST("/categories", handlers.CreateCategory)
+		api.DELETE("/categories/:id", handlers.DeleteCategory)
 
 		api.POST("/transactions", handlers.CreateTransaction)
 		api.GET("/transactions/export", handlers.ExportCSV)

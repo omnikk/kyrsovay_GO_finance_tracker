@@ -196,7 +196,6 @@
     </div>
 
     <div class="container">
-        <!-- Карточки сводки -->
         <div class="cards">
             <div class="card income">
                 <div class="label">Доходы</div>
@@ -216,21 +215,82 @@
             <!-- Форма добавления -->
             <div class="panel">
                 <h3>➕ Добавить транзакцию</h3>
-                <select id="txType">
+                <select id="txType" onchange="filterCategoryOptions()">
                     <option value="expense">Расход</option>
                     <option value="income">Доход</option>
                 </select>
-                <select id="txCategory"></select>
+                <select id="txParent" onchange="updateSubcategories()">
+                    <option value="">— Группа категорий —</option>
+                </select>
+                <select id="txCategory">
+                    <option value="">— Подкатегория —</option>
+                </select>
                 <input type="number" id="txAmount" placeholder="Сумма (₽)" min="1">
                 <input type="text" id="txDesc" placeholder="Описание">
                 <input type="date" id="txDate">
                 <button class="submit" onclick="createTransaction()">Добавить</button>
                 <div class="error" id="txError"></div>
+
+                <hr style="margin:16px 0;border:none;border-top:1px solid #f0f0f0">
+
+                <h3 style="margin-bottom:12px">🗂 Своя категория</h3>
+                <input type="text" id="newCatName" placeholder="Название категории">
+                <select id="newCatType" onchange="rebuildCategorySelects()">
+                    <option value="expense">Расход</option>
+                    <option value="income">Доход</option>
+                </select>
+                <select id="newCatParent">
+                    <option value="">— Корневая (без родителя) —</option>
+                </select>
+                <button class="submit" onclick="createCategory()" style="background:#457b9d">Создать категорию</button>
+                <div class="error" id="catError"></div>
             </div>
 
             <!-- Аналитика по категориям -->
             <div class="panel">
-                <h3>📊 Расходы по категориям</h3>
+                <div style="margin-bottom:14px">
+                    <div style="display:flex;gap:8px;margin-bottom:10px">
+                        <button onclick="setAnalyticsMode('all')" id="btnModeAll"
+                            style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#2d6a4f;color:white">
+                            Все
+                        </button>
+                        <button onclick="setAnalyticsMode('categories')" id="btnModeCat"
+                            style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#eee;color:#555">
+                            Категории
+                        </button>
+                        <button onclick="setAnalyticsMode('subcategories')" id="btnModeSub"
+                            style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#eee;color:#555">
+                            Подкатегории
+                        </button>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-bottom:10px" id="typeFilterRow">
+                        <button onclick="setCatView('all')" id="btnAll"
+                            style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#457b9d;color:white">
+                            Все
+                        </button>
+                        <button onclick="setCatView('expense')" id="btnExpense"
+                            style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#eee;color:#555">
+                            Расходы
+                        </button>
+                        <button onclick="setCatView('income')" id="btnIncome"
+                            style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#eee;color:#555">
+                            Доходы
+                        </button>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center" id="dateFilterRow">
+                        <input type="date" id="catFrom"
+                            style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin:0">
+                        <span style="color:#aaa;font-size:13px">—</span>
+                        <input type="date" id="catTo"
+                            style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin:0">
+                        <button onclick="renderCategoryDrill()"
+                            style="padding:7px 12px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">
+                            ОК
+                        </button>
+                    </div>
+                </div>
+            
+                <div id="catBreadcrumb" style="font-size:13px;color:#888;margin-bottom:10px;min-height:18px"></div>
                 <div class="by-cat" id="byCategory">
                     <div style="color:#aaa;font-size:14px">Нет данных</div>
                 </div>
@@ -239,14 +299,14 @@
             <!-- Список транзакций -->
             <div class="panel" style="grid-column: span 2">
                 <h3 style="display:flex;justify-content:space-between;align-items:center">
-    📋 Транзакции
-    <button onclick="exportCSV()" style="background:#457b9d;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">
-        ⬇ Скачать CSV
-    </button>
-</h3>
+                    📋 Транзакции
+                    <button onclick="exportCSV()" style="background:#457b9d;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">
+                        ⬇ Скачать CSV
+                    </button>
+                </h3>
                 <div class="filters">
-                    <input type="date" id="filterFrom" placeholder="От">
-                    <input type="date" id="filterTo" placeholder="До">
+                    <input type="date" id="filterFrom">
+                    <input type="date" id="filterTo">
                     <select id="filterType" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px">
                         <option value="">Все</option>
                         <option value="income">Доходы</option>
@@ -266,7 +326,7 @@
 const API = 'http://localhost:8080/api'
 let token = localStorage.getItem('token')
 let isLogin = true
-let categories = []
+let allCategories = []
 
 function fmt(n) {
     return Number(n).toLocaleString('ru-RU') + ' ₽'
@@ -301,9 +361,7 @@ async function submitAuth() {
     try {
         const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         const data = await res.json()
-
         if (!res.ok) { err.textContent = data.error || 'Ошибка'; return }
-
         if (!isLogin) {
             isLogin = true
             toggleAuth()
@@ -311,7 +369,6 @@ async function submitAuth() {
             err.textContent = 'Аккаунт создан, войдите'
             return
         }
-
         token = data.token
         localStorage.setItem('token', token)
         showApp()
@@ -335,37 +392,121 @@ async function showApp() {
     const today = new Date().toISOString().split('T')[0]
     document.getElementById('txDate').value = today
 
+    document.getElementById('newCatType').addEventListener('change', rebuildCategorySelects)
+
     await loadCategories()
     await loadTransactions()
     await loadSummary()
 }
 
+// --- КАТЕГОРИИ ---
 async function loadCategories() {
     const res = await fetch(`${API}/categories`, { headers: headers() })
-    categories = await res.json()
+    allCategories = await res.json()
+    rebuildCategorySelects()
+}
 
-    const sel = document.getElementById('txCategory')
-    sel.innerHTML = ''
-    categories.forEach(c => {
+function rebuildCategorySelects() {
+    const type = document.getElementById('txType').value
+    const roots = allCategories.filter(c => c.parent_id === null && c.type === type)
+
+    const parentSel = document.getElementById('txParent')
+    parentSel.innerHTML = '<option value="">— Группа категорий —</option>'
+    roots.forEach(c => {
         const opt = document.createElement('option')
         opt.value = c.id
         opt.textContent = c.name
-        opt.dataset.type = c.type
-        sel.appendChild(opt)
+        parentSel.appendChild(opt)
     })
 
-    document.getElementById('txType').addEventListener('change', filterCategoryOptions)
-    filterCategoryOptions()
+    const newCatType = document.getElementById('newCatType').value
+    const allRoots = allCategories.filter(c => c.parent_id === null && c.type === newCatType)
+    const newCatParent = document.getElementById('newCatParent')
+    newCatParent.innerHTML = '<option value="">— Корневая (без родителя) —</option>'
+    allRoots.forEach(c => {
+        const opt = document.createElement('option')
+        opt.value = c.id
+        opt.textContent = c.name
+        newCatParent.appendChild(opt)
+    })
+
+    updateSubcategories()
 }
 
 function filterCategoryOptions() {
-    const type = document.getElementById('txType').value
-    const sel = document.getElementById('txCategory')
-    Array.from(sel.options).forEach(opt => {
-        opt.style.display = categories.find(c => c.id == opt.value)?.type === type ? '' : 'none'
+    rebuildCategorySelects()
+}
+
+function updateSubcategories() {
+    const parentID = parseInt(document.getElementById('txParent').value)
+    const subSel = document.getElementById('txCategory')
+    subSel.innerHTML = '<option value="">— Подкатегория —</option>'
+    if (!parentID) return
+    const subs = allCategories.filter(c => c.parent_id === parentID)
+    subs.forEach(c => {
+        const opt = document.createElement('option')
+        opt.value = c.id
+        opt.textContent = c.name
+        subSel.appendChild(opt)
     })
-    const visible = Array.from(sel.options).find(o => o.style.display !== 'none')
-    if (visible) sel.value = visible.value
+    if (subs.length > 0) subSel.value = subs[0].id
+}
+
+async function createCategory() {
+    const name = document.getElementById('newCatName').value.trim()
+    const type = document.getElementById('newCatType').value
+    const parentVal = document.getElementById('newCatParent').value
+    const err = document.getElementById('catError')
+
+    if (!name) { err.textContent = 'Введите название'; return }
+    err.textContent = ''
+
+    const body = { name, type }
+    if (parentVal) body.parent_id = parseInt(parentVal)
+
+    const res = await fetch(`${API}/categories`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify(body)
+    })
+
+    if (!res.ok) { err.textContent = 'Ошибка при создании'; return }
+
+    document.getElementById('newCatName').value = ''
+    err.style.color = '#2d6a4f'
+    err.textContent = 'Категория создана ✓'
+    setTimeout(() => { err.textContent = ''; err.style.color = '#e63946' }, 2000)
+    await loadCategories()
+}
+
+// --- ТРАНЗАКЦИИ ---
+async function createTransaction() {
+    const type = document.getElementById('txType').value
+    const subVal = document.getElementById('txCategory').value
+    const parentVal = document.getElementById('txParent').value
+    const category_id = parseInt(subVal || parentVal)
+    const amount = parseFloat(document.getElementById('txAmount').value)
+    const description = document.getElementById('txDesc').value
+    const date = document.getElementById('txDate').value
+    const err = document.getElementById('txError')
+
+    if (!category_id) { err.textContent = 'Выберите категорию'; return }
+    if (!amount || amount <= 0) { err.textContent = 'Укажите сумму'; return }
+    if (!date) { err.textContent = 'Укажите дату'; return }
+    err.textContent = ''
+
+    const res = await fetch(`${API}/transactions`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ category_id, amount, type, description, date })
+    })
+
+    if (!res.ok) { err.textContent = 'Ошибка при добавлении'; return }
+
+    document.getElementById('txAmount').value = ''
+    document.getElementById('txDesc').value = ''
+    await loadTransactions()
+    await loadSummary()
 }
 
 async function loadTransactions() {
@@ -401,58 +542,6 @@ async function loadTransactions() {
     `).join('')
 }
 
-async function loadSummary() {
-    const res = await fetch(`${API}/analytics/summary`, { headers: headers() })
-    const data = await res.json()
-
-    document.getElementById('totalIncome').textContent = fmt(data.total_income)
-    document.getElementById('totalExpense').textContent = fmt(data.total_expense)
-    document.getElementById('totalBalance').textContent = fmt(data.balance)
-
-    const bycat = document.getElementById('byCategory')
-    const cats = data.by_category
-    if (!cats || Object.keys(cats).length === 0) {
-        bycat.innerHTML = '<div style="color:#aaa;font-size:14px">Нет данных</div>'
-        return
-    }
-
-    const max = Math.max(...Object.values(cats))
-    bycat.innerHTML = Object.entries(cats).sort((a,b) => b[1]-a[1]).map(([name, val]) => `
-        <div class="by-cat-item" style="flex-direction:column">
-            <div style="display:flex;justify-content:space-between">
-                <span>${name}</span><span style="font-weight:bold">${fmt(val)}</span>
-            </div>
-            <div class="by-cat-bar" style="width:${(val/max*100).toFixed(0)}%"></div>
-        </div>
-    `).join('')
-}
-
-async function createTransaction() {
-    const type = document.getElementById('txType').value
-    const category_id = parseInt(document.getElementById('txCategory').value)
-    const amount = parseFloat(document.getElementById('txAmount').value)
-    const description = document.getElementById('txDesc').value
-    const date = document.getElementById('txDate').value
-    const err = document.getElementById('txError')
-
-    if (!amount || amount <= 0) { err.textContent = 'Укажите сумму'; return }
-    if (!date) { err.textContent = 'Укажите дату'; return }
-    err.textContent = ''
-
-    const res = await fetch(`${API}/transactions`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ category_id, amount, type, description, date })
-    })
-
-    if (!res.ok) { err.textContent = 'Ошибка при добавлении'; return }
-
-    document.getElementById('txAmount').value = ''
-    document.getElementById('txDesc').value = ''
-    await loadTransactions()
-    await loadSummary()
-}
-
 async function deleteTransaction(id) {
     if (!confirm('Удалить транзакцию?')) return
     await fetch(`${API}/transactions/${id}`, { method: 'DELETE', headers: headers() })
@@ -470,6 +559,177 @@ async function exportCSV() {
     a.click()
     URL.revokeObjectURL(url)
 }
+
+// --- АНАЛИТИКА ---
+let catViewType = 'all'
+let catMode = 'all'
+let catDrillParent = null
+
+async function loadSummary() {
+    const res = await fetch(`${API}/analytics/summary`, { headers: headers() })
+    const data = await res.json()
+    document.getElementById('totalIncome').textContent = fmt(data.total_income)
+    document.getElementById('totalExpense').textContent = fmt(data.total_expense)
+    document.getElementById('totalBalance').textContent = fmt(data.balance)
+    renderCategoryDrill()
+}
+
+function setAnalyticsMode(mode) {
+    catMode = mode
+    catDrillParent = null
+
+    const modes = { all: 'btnModeAll', categories: 'btnModeCat', subcategories: 'btnModeSub' }
+    Object.entries(modes).forEach(([k, id]) => {
+        const btn = document.getElementById(id)
+        btn.style.background = k === mode ? '#2d6a4f' : '#eee'
+        btn.style.color = k === mode ? 'white' : '#555'
+    })
+
+    // Скрываем кнопки типа для режима "все"
+    document.getElementById('typeFilterRow').style.display = mode === 'all' ? 'none' : 'flex'
+
+    renderCategoryDrill()
+}
+
+function setCatView(type) {
+    catViewType = type
+    catDrillParent = null
+
+    const btns = { all: 'btnAll', expense: 'btnExpense', income: 'btnIncome' }
+    const colors = { all: '#457b9d', expense: '#e63946', income: '#2d6a4f' }
+    Object.entries(btns).forEach(([k, id]) => {
+        const btn = document.getElementById(id)
+        btn.style.background = k === type ? colors[k] : '#eee'
+        btn.style.color = k === type ? 'white' : '#555'
+    })
+
+    renderCategoryDrill()
+}
+
+async function renderCategoryDrill() {
+    const from = document.getElementById('catFrom').value
+    const to = document.getElementById('catTo').value
+
+    // Режим "Все" — просто доходы и расходы
+    if (catMode === 'all') {
+        let url = `${API}/analytics/summary?`
+        if (from) url += `from=${from}&`
+        if (to) url += `to=${to}&`
+
+        const res = await fetch(url, { headers: headers() })
+        const data = await res.json()
+
+        document.getElementById('catBreadcrumb').innerHTML = ''
+        document.getElementById('byCategory').innerHTML = `
+            <div class="by-cat-item" style="flex-direction:column">
+                <div style="display:flex;justify-content:space-between">
+                    <span>Доходы</span><span style="font-weight:bold;color:#2d6a4f">+${fmt(data.total_income)}</span>
+                </div>
+                <div style="height:6px;background:#2d6a4f;border-radius:3px;margin-top:4px;width:100%"></div>
+            </div>
+            <div class="by-cat-item" style="flex-direction:column;margin-top:8px">
+                <div style="display:flex;justify-content:space-between">
+                    <span>Расходы</span><span style="font-weight:bold;color:#e63946">-${fmt(data.total_expense)}</span>
+                </div>
+                <div style="height:6px;background:#e63946;border-radius:3px;margin-top:4px;width:${data.total_income > 0 ? (data.total_expense/data.total_income*100).toFixed(0) : 100}%"></div>
+            </div>
+        `
+        return
+    }
+
+    // Режим "Категории" и "Подкатегории"
+    const types = catViewType === 'all' ? ['income', 'expense'] : [catViewType]
+    let allTransactions = []
+
+    for (const t of types) {
+        let url = `${API}/transactions?type=${t}&`
+        if (from) url += `from=${from}&`
+        if (to) url += `to=${to}&`
+        const res = await fetch(url, { headers: headers() })
+        const data = await res.json()
+        if (data && data.length) allTransactions = allTransactions.concat(data)
+    }
+
+    if (!allTransactions.length) {
+        document.getElementById('byCategory').innerHTML = '<div style="color:#aaa;font-size:14px">Нет данных</div>'
+        document.getElementById('catBreadcrumb').innerHTML = ''
+        return
+    }
+
+    const sums = {}
+    allTransactions.forEach(t => {
+        sums[t.category_id] = (sums[t.category_id] || 0) + t.amount
+    })
+
+    let displayItems = []
+
+    if (catMode === 'categories') {
+        // Только корневые категории
+        const typeFilter = catViewType === 'all' ? ['income', 'expense'] : [catViewType]
+        const roots = allCategories.filter(c => c.parent_id === null && typeFilter.includes(c.type))
+        roots.forEach(root => {
+            const subs = allCategories.filter(c => c.parent_id === root.id)
+            let total = sums[root.id] || 0
+            subs.forEach(s => { total += sums[s.id] || 0 })
+            if (total > 0) displayItems.push({
+                id: root.id, name: root.name, amount: total,
+                hasChildren: subs.length > 0, type: root.type
+            })
+        })
+        document.getElementById('catBreadcrumb').innerHTML = ''
+
+    } else if (catMode === 'subcategories' && catDrillParent === null) {
+        // Все подкатегории сразу
+        const typeFilter = catViewType === 'all' ? ['income', 'expense'] : [catViewType]
+        const subs = allCategories.filter(c => c.parent_id !== null && typeFilter.includes(c.type))
+        subs.forEach(sub => {
+            const total = sums[sub.id] || 0
+            if (total > 0) {
+                const parent = allCategories.find(c => c.id === sub.parent_id)
+                displayItems.push({
+                    id: sub.id, name: sub.name, amount: total,
+                    hasChildren: false, type: sub.type,
+                    parentName: parent?.name || ''
+                })
+            }
+        })
+        document.getElementById('catBreadcrumb').innerHTML = ''
+    }
+
+    displayItems.sort((a, b) => b.amount - a.amount)
+
+    if (!displayItems.length) {
+        document.getElementById('byCategory').innerHTML = '<div style="color:#aaa;font-size:14px">Нет данных</div>'
+        return
+    }
+
+    const max = Math.max(...displayItems.map(i => i.amount))
+
+    document.getElementById('byCategory').innerHTML = displayItems.map(item => {
+        const color = item.type === 'income' ? '#2d6a4f' : '#e63946'
+        const sub = item.parentName ? `<span style="color:#bbb;font-size:11px"> · ${item.parentName}</span>` : ''
+        return `
+            <div class="by-cat-item" style="flex-direction:column">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span>${item.name}${sub}</span>
+                    <span style="font-weight:bold;color:${color}">${fmt(item.amount)}</span>
+                </div>
+                <div style="height:6px;background:${color};border-radius:3px;margin-top:4px;width:${(item.amount/max*100).toFixed(0)}%"></div>
+            </div>
+        `
+    }).join('')
+}
+
+function drillDown(parentId) {
+    catDrillParent = parentId
+    renderCategoryDrill()
+}
+
+function drillUp() {
+    catDrillParent = null
+    renderCategoryDrill()
+}
+
 // Запуск
 if (token) {
     showApp()

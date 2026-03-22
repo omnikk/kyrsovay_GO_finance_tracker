@@ -43,8 +43,28 @@ func DeleteTransaction(id, userID uint) error {
 
 func GetCategories() ([]models.Category, error) {
 	var categories []models.Category
-	err := DB.Find(&categories).Error
+	err := DB.Where("parent_id IS NULL").Find(&categories).Error
 	return categories, err
+}
+
+func GetCategoriesWithSubs() ([]models.Category, error) {
+	var categories []models.Category
+	err := DB.Preload("Parent").Find(&categories).Error
+	return categories, err
+}
+
+func GetSubcategories(parentID uint) ([]models.Category, error) {
+	var categories []models.Category
+	err := DB.Where("parent_id = ?", parentID).Find(&categories).Error
+	return categories, err
+}
+
+func CreateCategory(c *models.Category) error {
+	return DB.Create(c).Error
+}
+
+func DeleteCategory(id, userID uint) error {
+	return DB.Where("id = ? AND is_custom = true", id).Delete(&models.Category{}).Error
 }
 
 func GetBudgetsByUser(userID uint, month, year int) ([]models.Budget, error) {
