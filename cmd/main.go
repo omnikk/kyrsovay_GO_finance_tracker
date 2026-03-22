@@ -50,6 +50,10 @@ func main() {
 		api.GET("/analytics/summary", handlers.GetSummary)
 		api.GET("/analytics/budgets", handlers.GetBudgetStatus)
 		api.GET("/analytics/monthly", handlers.GetMonthlyStats)
+
+		api.GET("/profile", handlers.GetProfile)
+		api.PUT("/profile", handlers.UpdateProfile)
+		api.PUT("/profile/password", handlers.ChangePassword)
 	}
 
 	port := os.Getenv("PORT")
