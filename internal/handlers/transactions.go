@@ -363,7 +363,32 @@ func ImportCSV(c *gin.Context) {
 		}
 		if categoryID == 0 && catName != "" {
 			if cat, ok := catByName[catName]; ok {
-				categoryID = cat.ID
+				// Если это корневая категория и подкатегория не указана —
+				// ищем подкатегорию с таким же именем внутри неё
+				if cat.ParentID == nil {
+					for _, sub := range allCats {
+						if sub.ParentID != nil && *sub.ParentID == cat.ID &&
+							strings.ToLower(sub.Name) == strings.ToLower(cat.Name) {
+							categoryID = sub.ID
+							break
+						}
+					}
+					// Если такой подкатегории нет — создаём её
+					if categoryID == 0 {
+						newSub := models.Category{
+							Name:     cat.Name,
+							Type:     txType,
+							ParentID: &cat.ID,
+							IsCustom: true,
+						}
+						repository.DB.Create(&newSub)
+						categoryID = newSub.ID
+						allCats = append(allCats, newSub)
+						catByName[strings.ToLower(newSub.Name)] = newSub
+					}
+				} else {
+					categoryID = cat.ID
+				}
 			}
 		}
 		if categoryID == 0 {
