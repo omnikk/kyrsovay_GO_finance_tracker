@@ -17,6 +17,12 @@ func InitDB() {
 		log.Fatal("Ошибка подключения к БД: ", err)
 	}
 
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Fatal("Ошибка получения sql.DB: ", err)
+	}
+	sqlDB.Exec("PRAGMA encoding = 'UTF-8';")
+
 	err = DB.AutoMigrate(
 		&models.User{},
 		&models.Category{},

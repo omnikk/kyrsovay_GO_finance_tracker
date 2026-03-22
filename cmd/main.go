@@ -13,7 +13,7 @@ func main() {
 	repository.InitDB()
 
 	r := gin.Default()
-
+	r.StaticFile("/", "./static/index.html")
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -37,6 +37,7 @@ func main() {
 		api.GET("/categories", handlers.GetCategories)
 
 		api.POST("/transactions", handlers.CreateTransaction)
+		api.GET("/transactions/export", handlers.ExportCSV)
 		api.GET("/transactions", handlers.GetTransactions)
 		api.PUT("/transactions/:id", handlers.UpdateTransaction)
 		api.DELETE("/transactions/:id", handlers.DeleteTransaction)
