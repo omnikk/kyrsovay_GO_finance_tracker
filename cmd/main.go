@@ -5,6 +5,7 @@ import (
 	"finance-tracker/internal/middleware"
 	"finance-tracker/internal/repository"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,6 +52,10 @@ func main() {
 		api.GET("/analytics/monthly", handlers.GetMonthlyStats)
 	}
 
-	log.Println("Сервер запущен на http://localhost:8080")
-	r.Run(":8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Println("Сервер запущен на порту " + port)
+	r.Run(":" + port)
 }
