@@ -59,3 +59,19 @@ func GetBudgetStatus(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, status)
 }
+
+func GetMonthlyStats(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	year := time.Now().Year()
+	if y := c.Query("year"); y != "" {
+		if parsed, err := strconv.Atoi(y); err == nil {
+			year = parsed
+		}
+	}
+	data, err := service.GetMonthlyStats(userID, year)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}

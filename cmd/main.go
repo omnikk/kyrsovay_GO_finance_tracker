@@ -45,8 +45,10 @@ func main() {
 		api.DELETE("/transactions/:id", handlers.DeleteTransaction)
 
 		api.POST("/budgets", handlers.SetBudget)
+		api.POST("/transactions/import", handlers.ImportCSV)
 		api.GET("/analytics/summary", handlers.GetSummary)
 		api.GET("/analytics/budgets", handlers.GetBudgetStatus)
+		api.GET("/analytics/monthly", handlers.GetMonthlyStats)
 	}
 
 	log.Println("Сервер запущен на http://localhost:8080")

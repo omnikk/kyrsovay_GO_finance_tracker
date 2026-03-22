@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finance Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
@@ -18,14 +19,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         .navbar h1 { font-size: 22px; }
-        .navbar button {
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
 
         .container { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
 
@@ -146,12 +139,6 @@
             border-bottom: 1px solid #f5f5f5;
             font-size: 14px;
         }
-        .by-cat-bar {
-            height: 6px;
-            background: #e63946;
-            border-radius: 3px;
-            margin-top: 4px;
-        }
 
         .error { color: #e63946; font-size: 13px; margin-top: 6px; text-align: center; }
         .filters { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -192,132 +179,244 @@
 <div id="app">
     <div class="navbar">
         <h1>💰 Finance Tracker</h1>
-        <button onclick="logout()">Выйти</button>
+        <div style="display:flex;gap:12px;align-items:center">
+            <button onclick="showPage('main')" id="navMain"
+                style="background:rgba(255,255,255,0.35);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px">
+                📋 Главная
+            </button>
+            <button onclick="showPage('dashboard')" id="navDash"
+                style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px">
+                📈 Дашборд
+            </button>
+            <button onclick="logout()"
+                style="background:#ff6b6b;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">
+                Выйти
+            </button>
+        </div>
     </div>
 
-    <div class="container">
-        <div class="cards">
-            <div class="card income">
-                <div class="label">Доходы</div>
-                <div class="value" id="totalIncome">0 ₽</div>
+    <!-- ГЛАВНАЯ -->
+    <div id="mainPage">
+        <div class="container">
+            <div class="cards">
+                <div class="card income">
+                    <div class="label">Доходы</div>
+                    <div class="value" id="totalIncome">0 ₽</div>
+                </div>
+                <div class="card expense">
+                    <div class="label">Расходы</div>
+                    <div class="value" id="totalExpense">0 ₽</div>
+                </div>
+                <div class="card balance">
+                    <div class="label">Баланс</div>
+                    <div class="value" id="totalBalance">0 ₽</div>
+                </div>
             </div>
-            <div class="card expense">
-                <div class="label">Расходы</div>
-                <div class="value" id="totalExpense">0 ₽</div>
-            </div>
-            <div class="card balance">
-                <div class="label">Баланс</div>
-                <div class="value" id="totalBalance">0 ₽</div>
+
+            <div class="main-grid">
+                <!-- Форма добавления -->
+                <div class="panel">
+                    <h3>➕ Добавить транзакцию</h3>
+                    <select id="txType" onchange="filterCategoryOptions()">
+                        <option value="expense">Расход</option>
+                        <option value="income">Доход</option>
+                    </select>
+                    <select id="txParent" onchange="updateSubcategories()">
+                        <option value="">— Группа категорий —</option>
+                    </select>
+                    <select id="txCategory">
+                        <option value="">— Подкатегория —</option>
+                    </select>
+                    <input type="number" id="txAmount" placeholder="Сумма (₽)" min="1">
+                    <input type="text" id="txDesc" placeholder="Описание">
+                    <input type="date" id="txDate">
+                    <button class="submit" onclick="createTransaction()">Добавить</button>
+                    <div class="error" id="txError"></div>
+
+                    <hr style="margin:16px 0;border:none;border-top:1px solid #f0f0f0">
+
+                    <h3 style="margin-bottom:12px">🗂 Своя категория</h3>
+                    <input type="text" id="newCatName" placeholder="Название категории">
+                    <select id="newCatType" onchange="rebuildCategorySelects()">
+                        <option value="expense">Расход</option>
+                        <option value="income">Доход</option>
+                    </select>
+                    <select id="newCatParent">
+                        <option value="">— Корневая (без родителя) —</option>
+                    </select>
+                    <button class="submit" onclick="createCategory()" style="background:#457b9d">Создать категорию</button>
+                    <div class="error" id="catError"></div>
+                </div>
+
+                <!-- Аналитика по категориям -->
+                <div class="panel">
+                    <div style="margin-bottom:14px">
+                        <div style="display:flex;gap:8px;margin-bottom:10px">
+                            <button onclick="setAnalyticsMode('all')" id="btnModeAll"
+                                style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#2d6a4f;color:white">
+                                Все
+                            </button>
+                            <button onclick="setAnalyticsMode('categories')" id="btnModeCat"
+                                style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#eee;color:#555">
+                                Категории
+                            </button>
+                            <button onclick="setAnalyticsMode('subcategories')" id="btnModeSub"
+                                style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#eee;color:#555">
+                                Подкатегории
+                            </button>
+                        </div>
+                        <div style="display:none;gap:8px;margin-bottom:10px" id="typeFilterRow">
+                            <button onclick="setCatView('all')" id="btnAll"
+                                style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#457b9d;color:white">
+                                Все
+                            </button>
+                            <button onclick="setCatView('expense')" id="btnExpense"
+                                style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#eee;color:#555">
+                                Расходы
+                            </button>
+                            <button onclick="setCatView('income')" id="btnIncome"
+                                style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#eee;color:#555">
+                                Доходы
+                            </button>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <input type="date" id="catFrom"
+                                style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin:0">
+                            <span style="color:#aaa;font-size:13px">—</span>
+                            <input type="date" id="catTo"
+                                style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin:0">
+                            <button onclick="renderCategoryDrill()"
+                                style="padding:7px 12px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">
+                                ОК
+                            </button>
+                        </div>
+                    </div>
+                    <div id="catBreadcrumb" style="font-size:13px;color:#888;margin-bottom:10px;min-height:18px"></div>
+                    <div class="by-cat" id="byCategory">
+                        <div style="color:#aaa;font-size:14px">Нет данных</div>
+                    </div>
+                </div>
+
+                <!-- Список транзакций -->
+                <div class="panel" style="grid-column: span 2">
+                    <h3 style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                        📋 Транзакции
+                        <div style="display:flex;gap:8px">
+                            <button onclick="exportCSV()" style="background:#457b9d;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">
+                                ⬇ Скачать CSV
+                            </button>
+                            <button onclick="openImportModal()" style="background:#2d6a4f;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">
+                                ⬆ Импорт CSV
+                            </button>
+                        </div>
+                    </h3>
+                    <div class="filters">
+                        <input type="date" id="filterFrom">
+                        <input type="date" id="filterTo">
+                        <select id="filterType" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px">
+                            <option value="">Все</option>
+                            <option value="income">Доходы</option>
+                            <option value="expense">Расходы</option>
+                        </select>
+                        <button onclick="loadTransactions()">Фильтр</button>
+                    </div>
+                    <div class="tx-list" id="txList">
+                        <div style="color:#aaa;font-size:14px">Загрузка...</div>
+                    </div>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="main-grid">
-            <!-- Форма добавления -->
-            <div class="panel">
-                <h3>➕ Добавить транзакцию</h3>
-                <select id="txType" onchange="filterCategoryOptions()">
-                    <option value="expense">Расход</option>
-                    <option value="income">Доход</option>
-                </select>
-                <select id="txParent" onchange="updateSubcategories()">
-                    <option value="">— Группа категорий —</option>
-                </select>
-                <select id="txCategory">
-                    <option value="">— Подкатегория —</option>
-                </select>
-                <input type="number" id="txAmount" placeholder="Сумма (₽)" min="1">
-                <input type="text" id="txDesc" placeholder="Описание">
-                <input type="date" id="txDate">
-                <button class="submit" onclick="createTransaction()">Добавить</button>
-                <div class="error" id="txError"></div>
-
-                <hr style="margin:16px 0;border:none;border-top:1px solid #f0f0f0">
-
-                <h3 style="margin-bottom:12px">🗂 Своя категория</h3>
-                <input type="text" id="newCatName" placeholder="Название категории">
-                <select id="newCatType" onchange="rebuildCategorySelects()">
-                    <option value="expense">Расход</option>
-                    <option value="income">Доход</option>
-                </select>
-                <select id="newCatParent">
-                    <option value="">— Корневая (без родителя) —</option>
-                </select>
-                <button class="submit" onclick="createCategory()" style="background:#457b9d">Создать категорию</button>
-                <div class="error" id="catError"></div>
-            </div>
-
-            <!-- Аналитика по категориям -->
-            <div class="panel">
-                <div style="margin-bottom:14px">
-                    <div style="display:flex;gap:8px;margin-bottom:10px">
-                        <button onclick="setAnalyticsMode('all')" id="btnModeAll"
-                            style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#2d6a4f;color:white">
-                            Все
-                        </button>
-                        <button onclick="setAnalyticsMode('categories')" id="btnModeCat"
-                            style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#eee;color:#555">
-                            Категории
-                        </button>
-                        <button onclick="setAnalyticsMode('subcategories')" id="btnModeSub"
-                            style="padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#eee;color:#555">
-                            Подкатегории
-                        </button>
-                    </div>
-                    <div style="display:flex;gap:8px;margin-bottom:10px" id="typeFilterRow">
-                        <button onclick="setCatView('all')" id="btnAll"
-                            style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#457b9d;color:white">
-                            Все
-                        </button>
-                        <button onclick="setCatView('expense')" id="btnExpense"
-                            style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#eee;color:#555">
-                            Расходы
-                        </button>
-                        <button onclick="setCatView('income')" id="btnIncome"
-                            style="padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;background:#eee;color:#555">
-                            Доходы
-                        </button>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center" id="dateFilterRow">
-                        <input type="date" id="catFrom"
-                            style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin:0">
-                        <span style="color:#aaa;font-size:13px">—</span>
-                        <input type="date" id="catTo"
-                            style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin:0">
-                        <button onclick="renderCategoryDrill()"
-                            style="padding:7px 12px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">
-                            ОК
-                        </button>
-                    </div>
-                </div>
-            
-                <div id="catBreadcrumb" style="font-size:13px;color:#888;margin-bottom:10px;min-height:18px"></div>
-                <div class="by-cat" id="byCategory">
-                    <div style="color:#aaa;font-size:14px">Нет данных</div>
-                </div>
-            </div>
-
-            <!-- Список транзакций -->
-            <div class="panel" style="grid-column: span 2">
-                <h3 style="display:flex;justify-content:space-between;align-items:center">
-                    📋 Транзакции
-                    <button onclick="exportCSV()" style="background:#457b9d;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">
-                        ⬇ Скачать CSV
-                    </button>
-                </h3>
-                <div class="filters">
-                    <input type="date" id="filterFrom">
-                    <input type="date" id="filterTo">
-                    <select id="filterType" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px">
-                        <option value="">Все</option>
-                        <option value="income">Доходы</option>
-                        <option value="expense">Расходы</option>
+    <!-- ДАШБОРД -->
+    <div id="dashboardPage" style="display:none">
+        <div class="container">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+                <h2 style="color:#2d6a4f">📈 Дашборд</h2>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <label style="font-size:14px;color:#666">Год:</label>
+                    <select id="dashYear" onchange="loadDashboard()"
+                        style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
                     </select>
-                    <button onclick="loadTransactions()">Фильтр</button>
-                </div>
-                <div class="tx-list" id="txList">
-                    <div style="color:#aaa;font-size:14px">Загрузка...</div>
                 </div>
             </div>
+
+            <div class="cards" style="margin-bottom:24px">
+                <div class="card income">
+                    <div class="label">Доходы за год</div>
+                    <div class="value" id="dashIncome">0 ₽</div>
+                </div>
+                <div class="card expense">
+                    <div class="label">Расходы за год</div>
+                    <div class="value" id="dashExpense">0 ₽</div>
+                </div>
+                <div class="card balance">
+                    <div class="label">Баланс за год</div>
+                    <div class="value" id="dashBalance">0 ₽</div>
+                </div>
+            </div>
+
+            <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.07);margin-bottom:24px">
+                <h3 style="color:#2d6a4f;margin-bottom:20px">Доходы и расходы по месяцам</h3>
+                <canvas id="chartMonthly" height="100"></canvas>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+                <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.07)">
+                    <h3 style="color:#e63946;margin-bottom:20px">Расходы по категориям</h3>
+                    <canvas id="chartExpensePie"></canvas>
+                </div>
+                <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.07)">
+                    <h3 style="color:#2d6a4f;margin-bottom:20px">Доходы по категориям</h3>
+                    <canvas id="chartIncomePie"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно импорта -->
+<div id="importModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:white;border-radius:16px;padding:32px;max-width:560px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+        <h3 style="color:#2d6a4f;margin-bottom:16px">⬆ Импорт транзакций из CSV</h3>
+
+        <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px;font-size:13px;line-height:1.7">
+            <strong>Требования к файлу:</strong><br>
+            Файл должен быть в формате <code>.csv</code> с разделителем запятая.<br><br>
+            <strong>Столбцы:</strong>
+            <table style="width:100%;border-collapse:collapse;margin-top:8px">
+                <tr style="background:#e9ecef">
+                    <th style="padding:6px 10px;text-align:left;border-radius:4px">Столбец</th>
+                    <th style="padding:6px 10px;text-align:left">Допустимые значения</th>
+                </tr>
+                <tr><td style="padding:5px 10px;border-bottom:1px solid #eee"><code>Тип</code></td><td style="padding:5px 10px;border-bottom:1px solid #eee">Доход / Расход (или income / expense)</td></tr>
+                <tr><td style="padding:5px 10px;border-bottom:1px solid #eee"><code>Категория</code></td><td style="padding:5px 10px;border-bottom:1px solid #eee">Повседневные, Квартира, Крупные, Доходы</td></tr>
+                <tr><td style="padding:5px 10px;border-bottom:1px solid #eee"><code>Подкатегория</code></td><td style="padding:5px 10px;border-bottom:1px solid #eee">Еда вне дома, Продукты, Зарплата и др.</td></tr>
+                <tr><td style="padding:5px 10px;border-bottom:1px solid #eee"><code>Сумма</code></td><td style="padding:5px 10px;border-bottom:1px solid #eee">Число в рублях (1500 или 1500.00)</td></tr>
+                <tr><td style="padding:5px 10px;border-bottom:1px solid #eee"><code>Описание</code></td><td style="padding:5px 10px;border-bottom:1px solid #eee">Любой текст (можно пусто)</td></tr>
+                <tr><td style="padding:5px 10px"><code>Дата</code></td><td style="padding:5px 10px">ГГГГ-ММ-ДД, ДД.ММ.ГГГГ или ММ/ДД/ГГГГ</td></tr>
+            </table>
+            <br>
+            <strong>Пример:</strong>
+            <code style="display:block;background:#e9ecef;padding:8px;border-radius:4px;margin-top:4px;font-size:12px">
+                Тип,Категория,Подкатегория,Сумма,Описание,Дата<br>
+                Расход,Повседневные,Продукты,1500,Магазин,2026-03-01<br>
+                Доход,Доходы,Зарплата,50000,,2026-03-10
+            </code>
+        </div>
+
+        <input type="file" id="importFile" accept=".csv" style="display:none" onchange="uploadCSV()">
+        <div id="importResult" style="display:none;padding:12px;border-radius:8px;margin-bottom:16px;font-size:14px"></div>
+
+        <div style="display:flex;gap:10px">
+            <button onclick="document.getElementById('importFile').click()"
+                style="flex:1;padding:12px;background:#2d6a4f;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px">
+                Выбрать файл
+            </button>
+            <button onclick="closeImportModal()"
+                style="padding:12px 20px;background:#eee;color:#555;border:none;border-radius:8px;cursor:pointer;font-size:15px">
+                Закрыть
+            </button>
         </div>
     </div>
 </div>
@@ -391,12 +490,20 @@ async function showApp() {
 
     const today = new Date().toISOString().split('T')[0]
     document.getElementById('txDate').value = today
-
     document.getElementById('newCatType').addEventListener('change', rebuildCategorySelects)
 
+    initYearSelect()
     await loadCategories()
     await loadTransactions()
     await loadSummary()
+}
+
+function showPage(page) {
+    document.getElementById('mainPage').style.display = page === 'main' ? 'block' : 'none'
+    document.getElementById('dashboardPage').style.display = page === 'dashboard' ? 'block' : 'none'
+    document.getElementById('navMain').style.background = page === 'main' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)'
+    document.getElementById('navDash').style.background = page === 'dashboard' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)'
+    if (page === 'dashboard') loadDashboard()
 }
 
 // --- КАТЕГОРИИ ---
@@ -433,9 +540,7 @@ function rebuildCategorySelects() {
     updateSubcategories()
 }
 
-function filterCategoryOptions() {
-    rebuildCategorySelects()
-}
+function filterCategoryOptions() { rebuildCategorySelects() }
 
 function updateSubcategories() {
     const parentID = parseInt(document.getElementById('txParent').value)
@@ -465,9 +570,7 @@ async function createCategory() {
     if (parentVal) body.parent_id = parseInt(parentVal)
 
     const res = await fetch(`${API}/categories`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify(body)
+        method: 'POST', headers: headers(), body: JSON.stringify(body)
     })
 
     if (!res.ok) { err.textContent = 'Ошибка при создании'; return }
@@ -496,8 +599,7 @@ async function createTransaction() {
     err.textContent = ''
 
     const res = await fetch(`${API}/transactions`, {
-        method: 'POST',
-        headers: headers(),
+        method: 'POST', headers: headers(),
         body: JSON.stringify({ category_id, amount, type, description, date })
     })
 
@@ -560,6 +662,72 @@ async function exportCSV() {
     URL.revokeObjectURL(url)
 }
 
+// --- ИМПОРТ ---
+function openImportModal() {
+    document.getElementById('importModal').style.display = 'flex'
+    document.getElementById('importResult').style.display = 'none'
+    document.getElementById('importFile').value = ''
+}
+
+function closeImportModal() {
+    document.getElementById('importModal').style.display = 'none'
+}
+
+async function uploadCSV() {
+    const file = document.getElementById('importFile').files[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const resultDiv = document.getElementById('importResult')
+    resultDiv.style.display = 'block'
+    resultDiv.style.background = '#f8f9fa'
+    resultDiv.style.color = '#333'
+    resultDiv.textContent = 'Загрузка...'
+
+    try {
+        const res = await fetch(`${API}/transactions/import`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+        })
+        const data = await res.json()
+
+        if (data.imported > 0) {
+            resultDiv.style.background = '#d4edda'
+            resultDiv.style.color = '#155724'
+        } else {
+            resultDiv.style.background = '#f8d7da'
+            resultDiv.style.color = '#721c24'
+        }
+
+        let msg = `✅ Импортировано: ${data.imported} транзакций`
+        if (data.skipped > 0) msg += `\n⚠️ Пропущено: ${data.skipped}`
+        if (data.errors && data.errors.length > 0) {
+            msg += '\n\nПричины:\n' + data.errors.slice(0, 5).join('\n')
+            if (data.errors.length > 5) msg += `\n...и ещё ${data.errors.length - 5}`
+        }
+        resultDiv.style.whiteSpace = 'pre-line'
+        resultDiv.textContent = msg
+
+        if (data.imported > 0) {
+            await loadTransactions()
+            await loadSummary()
+        }
+    } catch(e) {
+        resultDiv.style.background = '#f8d7da'
+        resultDiv.style.color = '#721c24'
+        resultDiv.textContent = 'Ошибка соединения'
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('importModal').addEventListener('click', function(e) {
+        if (e.target === this) closeImportModal()
+    })
+})
+
 // --- АНАЛИТИКА ---
 let catViewType = 'all'
 let catMode = 'all'
@@ -585,9 +753,7 @@ function setAnalyticsMode(mode) {
         btn.style.color = k === mode ? 'white' : '#555'
     })
 
-    // Скрываем кнопки типа для режима "все"
     document.getElementById('typeFilterRow').style.display = mode === 'all' ? 'none' : 'flex'
-
     renderCategoryDrill()
 }
 
@@ -610,7 +776,6 @@ async function renderCategoryDrill() {
     const from = document.getElementById('catFrom').value
     const to = document.getElementById('catTo').value
 
-    // Режим "Все" — просто доходы и расходы
     if (catMode === 'all') {
         let url = `${API}/analytics/summary?`
         if (from) url += `from=${from}&`
@@ -637,7 +802,6 @@ async function renderCategoryDrill() {
         return
     }
 
-    // Режим "Категории" и "Подкатегории"
     const types = catViewType === 'all' ? ['income', 'expense'] : [catViewType]
     let allTransactions = []
 
@@ -664,7 +828,6 @@ async function renderCategoryDrill() {
     let displayItems = []
 
     if (catMode === 'categories') {
-        // Только корневые категории
         const typeFilter = catViewType === 'all' ? ['income', 'expense'] : [catViewType]
         const roots = allCategories.filter(c => c.parent_id === null && typeFilter.includes(c.type))
         roots.forEach(root => {
@@ -677,9 +840,7 @@ async function renderCategoryDrill() {
             })
         })
         document.getElementById('catBreadcrumb').innerHTML = ''
-
-    } else if (catMode === 'subcategories' && catDrillParent === null) {
-        // Все подкатегории сразу
+    } else if (catMode === 'subcategories') {
         const typeFilter = catViewType === 'all' ? ['income', 'expense'] : [catViewType]
         const subs = allCategories.filter(c => c.parent_id !== null && typeFilter.includes(c.type))
         subs.forEach(sub => {
@@ -720,14 +881,102 @@ async function renderCategoryDrill() {
     }).join('')
 }
 
-function drillDown(parentId) {
-    catDrillParent = parentId
-    renderCategoryDrill()
+function drillDown(parentId) { catDrillParent = parentId; renderCategoryDrill() }
+function drillUp() { catDrillParent = null; renderCategoryDrill() }
+
+// --- ДАШБОРД ---
+let chartMonthly = null
+let chartExpensePie = null
+let chartIncomePie = null
+
+function initYearSelect() {
+    const sel = document.getElementById('dashYear')
+    const current = new Date().getFullYear()
+    sel.innerHTML = ''
+    for (let y = current; y >= current - 4; y--) {
+        const opt = document.createElement('option')
+        opt.value = y
+        opt.textContent = y
+        sel.appendChild(opt)
+    }
 }
 
-function drillUp() {
-    catDrillParent = null
-    renderCategoryDrill()
+async function loadDashboard() {
+    const year = document.getElementById('dashYear').value
+    const res = await fetch(`${API}/analytics/monthly?year=${year}`, { headers: headers() })
+    const monthly = await res.json()
+
+    const monthNames = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+    const incomes = monthly.map(m => m.income)
+    const expenses = monthly.map(m => m.expense)
+
+    const totalIncome = incomes.reduce((a,b) => a+b, 0)
+    const totalExpense = expenses.reduce((a,b) => a+b, 0)
+    document.getElementById('dashIncome').textContent = fmt(totalIncome)
+    document.getElementById('dashExpense').textContent = fmt(totalExpense)
+    document.getElementById('dashBalance').textContent = fmt(totalIncome - totalExpense)
+
+    if (chartMonthly) chartMonthly.destroy()
+    chartMonthly = new Chart(document.getElementById('chartMonthly'), {
+        type: 'bar',
+        data: {
+            labels: monthNames,
+            datasets: [
+                { label: 'Доходы', data: incomes, backgroundColor: 'rgba(45,106,79,0.7)', borderColor: '#2d6a4f', borderWidth: 1, borderRadius: 4 },
+                { label: 'Расходы', data: expenses, backgroundColor: 'rgba(230,57,70,0.7)', borderColor: '#e63946', borderWidth: 1, borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('ru-RU') + ' ₽' } } }
+        }
+    })
+
+    await loadPieCharts(year)
+}
+
+async function loadPieCharts(year) {
+    const from = `${year}-01-01`
+    const to = `${year}-12-31`
+
+    const [expRes, incRes] = await Promise.all([
+        fetch(`${API}/transactions?type=expense&from=${from}&to=${to}`, { headers: headers() }),
+        fetch(`${API}/transactions?type=income&from=${from}&to=${to}`, { headers: headers() })
+    ])
+    const expTx = await expRes.json()
+    const incTx = await incRes.json()
+
+    function buildPieData(transactions) {
+        const sums = {}
+        if (!transactions || !transactions.length) return { labels: [], data: [] }
+        transactions.forEach(t => {
+            const name = t.category?.name || 'Прочее'
+            sums[name] = (sums[name] || 0) + t.amount
+        })
+        const sorted = Object.entries(sums).sort((a,b) => b[1]-a[1])
+        return { labels: sorted.map(s => s[0]), data: sorted.map(s => s[1]) }
+    }
+
+    const expPie = buildPieData(expTx)
+    const incPie = buildPieData(incTx)
+    const palette = ['#e63946','#457b9d','#2d6a4f','#f4a261','#a8dadc','#e9c46a','#264653','#6d6875','#b5838d','#e76f51','#52b788','#90be6d']
+    const paletteGreen = ['#2d6a4f','#52b788','#95d5b2','#b7e4c7','#d8f3dc','#40916c','#74c69d','#1b4332','#081c15','#a7c957','#6a994e','#386641']
+
+    if (chartExpensePie) chartExpensePie.destroy()
+    if (chartIncomePie) chartIncomePie.destroy()
+
+    chartExpensePie = new Chart(document.getElementById('chartExpensePie'), {
+        type: 'doughnut',
+        data: { labels: expPie.labels, datasets: [{ data: expPie.data, backgroundColor: palette, borderWidth: 2 }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 10 } }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` } } } }
+    })
+
+    chartIncomePie = new Chart(document.getElementById('chartIncomePie'), {
+        type: 'doughnut',
+        data: { labels: incPie.labels, datasets: [{ data: incPie.data, backgroundColor: paletteGreen, borderWidth: 2 }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 10 } }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` } } } }
+    })
 }
 
 // Запуск
