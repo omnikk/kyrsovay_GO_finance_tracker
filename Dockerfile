@@ -1,8 +1,8 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:latest AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache gcc musl-dev
+RUN apt-get update && apt-get install -y gcc
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -11,11 +11,11 @@ COPY . .
 
 RUN CGO_ENABLED=1 GOOS=linux go build -o main ./cmd/main.go
 
-FROM alpine:latest
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/main .
 COPY --from=builder /app/static ./static
