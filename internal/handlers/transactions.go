@@ -368,7 +368,7 @@ func ImportCSV(c *gin.Context) {
 				if cat.ParentID == nil {
 					for _, sub := range allCats {
 						if sub.ParentID != nil && *sub.ParentID == cat.ID &&
-							strings.ToLower(sub.Name) == strings.ToLower(cat.Name) {
+							strings.EqualFold(sub.Name, cat.Name) {
 							categoryID = sub.ID
 							break
 						}
