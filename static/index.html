@@ -422,7 +422,7 @@
 </div>
 
 <script>
-const API = 'http://localhost:8080/api'
+const API = window.location.origin + '/api'
 let token = localStorage.getItem('token')
 let isLogin = true
 let allCategories = []
